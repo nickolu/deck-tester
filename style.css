@@ -1,0 +1,118 @@
+* {
+	margin: 0;
+	padding: 0;
+}
+.container {
+	margin: 4px;
+}
+.row {
+	clear: both;
+	height: 180px;
+	margin: 4px 0;
+}
+h4 {
+	position: absolute;
+	font-family: sans-serif;
+	text-transform: uppercase;
+	font-size: 40px;
+	color: #eaeaea;
+}
+.zone {
+	height: 180px;
+	width: 49%;
+	float: left;
+	padding: 0;
+	margin: 0;
+	border: 1px dashed #eaeaea;
+	position: relative;
+}
+
+.zone.hand {
+	width: 50%;
+	height: 180px;
+	border: 1px solid blue;
+}
+.zone.library {
+	width: 110px;
+	margin-left: 20px;
+	border: 1px solid green;
+}
+.zone.graveyard {
+	width: 110px;
+	margin-left: 5px;
+	border: 1px solid gray;
+}
+.zone.battlefield {
+	width: 100%;
+	float: none;
+}
+
+.zone.graveyard h4, .zone.library h4 {
+	  transform: rotate(90deg);
+	  -webkit-transform: rotate(90deg);
+	  position: relative;
+	  left: -44px;
+	  top: 42px;
+	  font-size: 24px;
+}
+.card {
+	width: 100px;
+	height: 150px; 
+	display: inline-block;
+	border: 1px solid #ccc;
+	border-radius: 4px;
+	padding: 4px;
+	box-sizing: border-box;
+	margin: 8px;
+	font-size: 12px;
+	float: left;
+	background-color: #fff;
+	font-family: sans-serif;
+	position: relative;
+	top: 0;
+	left: 0;
+	transition: all 0.4s;
+}
+
+.hand .card, .exile .card {
+	margin-left: -84px;
+  	left: 92px;
+}
+
+.hand:hover .card {
+	margin-left: -40px;
+	left: 42px;
+}
+
+.hand .card:hover {
+	top: -20px;
+}
+
+.library .card {
+	position: absolute;
+	top: 4px;
+	left: 4px;
+	margin: 0px;
+}
+
+.graveyard .card {
+	margin-top: -132px;
+	top: 109px;
+}
+
+
+.controls {
+	position: absolute;
+	top: 0;
+	right: 0;
+	width: 300px;
+	height: 200px;
+	border: 1px dashed #eaeaea;
+}
+
+.card.green {background-color: green;color: #fff;}
+.card.blue {background-color: blue;color: #fff;}
+.card.black {background-color: black;color: #fff;}
+.card.red {background-color: red;color: #fff;}
+.card.white {background-color: white;}
+.card.colorless {background-color: #666; color: #fff;}
