@@ -1,6 +1,15 @@
 * {
 	margin: 0;
 	padding: 0;
+	font-family: sans-serif;
+	
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+
 }
 .container {
 	margin: 4px;
@@ -47,6 +56,10 @@ h4 {
 	float: none;
 }
 
+.zone.active {
+	background: #ccc;
+}
+
 .zone.graveyard h4, .zone.library h4 {
 	  transform: rotate(90deg);
 	  -webkit-transform: rotate(90deg);
@@ -72,6 +85,7 @@ h4 {
 	top: 0;
 	left: 0;
 	transition: all 0.4s;
+	z-index: 100;
 }
 
 .hand .card, .exile .card {
@@ -79,10 +93,10 @@ h4 {
   	left: 92px;
 }
 
-.hand:hover .card {
+/*.hand:hover .card {
 	margin-left: -40px;
 	left: 42px;
-}
+}*/
 
 .hand .card:hover {
 	top: -20px;
@@ -108,6 +122,10 @@ h4 {
 	width: 300px;
 	height: 200px;
 	border: 1px dashed #eaeaea;
+}
+.controls p {margin-left: 4px;}
+.controls p:nth-child(2) {
+	margin-top: 42px;
 }
 
 .card.green {background-color: green;color: #fff;}
