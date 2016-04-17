@@ -1,49 +1,73 @@
+/**
+*	Deck Tester
+*	author: Nick Cunningham
+*	email: nickolusroy@gmail.com
+*	license: whatever
+*	
+*	a javascript application for playtesting magic decks
+
+current issues:
+- moveCards method for some reason adds 20 of specified card
+- updateZone method does a similar thing, but puts the cards outside of the <ul> container (seems to be separate issue)
+*/
+
+
 (function($){
-	
+
+
 $(document).ready(function() {
 	$.ajax({
 		url : 'AllCards.json',
-		success : function (data) {
+		success : function (cardJson) {
 			console.log('success!');
-			window.dT = new DeckTester(data);
+			window.dT = new DeckTester(cardJson);
 			window.dT.init();
 		},
 		error : ''
 	});
 });
 
+/**
+* converts a string to Proper Case
+*/
+
 String.prototype.toProperCase = function () {
     return this.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
 };
 
-var DeckTester = function(cardData) {
-	var game = {}, i,
+/***
+*	Represents a tester for magic decks
+*	@constructor
+*	@param {object} cardJson - card database
+*/
+var DeckTester = function(cardJson) {
+	var i, game = {}, 
 		zoneNames = ['hand','exile','library','graveyard','battlefield'];	
   	
-  	cardData = cardData || {};
+  	game.cardJson = cardJson || {}; 
   	game.zones = {};
-  	game.cardData = cardData;
+  	game.deck = [];
+  	
+  	game.options = {
+  		allowUserCards : true,
+  		useTestData : true
+  	};
 
 	game.init = function() {
 		$('.btn').on('click',game.startGame);	
 		game.cardEvents = new CardEvents();
-		game.clearZones();
+		game.initZones();
 	};
 
 	game.startGame = function() {
 		var i;		
-		
-		for (i=0; i<cardData.length; i++) {
-			game.zones.library.cards.push(cardData[cardData[i]]);
-		}
 
 		game.buildLibrary();
 		game.commands.shuffle(game.zones.library.cards);
-		game.commands.draw(7);
 		game.updateAllZones();
 	};
 
-	game.clearZones = function() {
+	game.initZones = function() {
 		for (i=0;i<zoneNames.length;i++) {
 			game.zones[zoneNames[i]] = {
 				name : zoneNames[i],
@@ -52,68 +76,120 @@ var DeckTester = function(cardData) {
 		}
 	};
 
+	/**
+	*	gets the card names and counts and makes the library object with them
+	*	if no cards array is provided it will use the value of the input element
+	*/
 	game.buildLibrary = function(cards) {
 		var cardName = '',
-			amount = 0,
+			qty = 0,
 			i, j;
 
-		// reset the zones
-		game.clearZones();
+		game.initZones();
 
-		cards = cards || document.getElementById('deckList').value.replace(/\r\n/g, "\n").split("\n");
-		// add cards to library
+		cards = cards || document.getElementById('deckList').value.replace(/\r\n/g, "\n").split("\n") || []; 
+
+		if (game.options.useTestData) {
+			cards = [
+				'20 dragon hatchling',
+				'20 forest',
+				'20 counterspell'
+			]
+		}
+		
 		for (i=0; i<cards.length; i++) {
-			
-			// split up the card name and quantity
-			if (!isNaN(cards[i].charAt(0))) {  // check that the first char is a number
-				
-				cards[i] = cards[i].split(" ");
-				amount = Number(cards[i][0]);
 
-				cards[i].splice(0,1);
-				cards[i] = cards[i].join(" ");	
+			if (!isNaN(cards[i].charAt(0))) {  // if the first character is a number (quantity for this card)
+				
+				// separate the card name and qty value 
+				cards[i] = cards[i].split(" "); 
+				qty = Number(cards[i][0]); 
+				cards[i].splice(0,1); 
+				cards[i] = cards[i].join(" "); 
 				cardName = cards[i].toString().toProperCase();
 				
-				for (j=0; j<amount; j++) {
-					if (cardData[cardName]) {
-						game.zones.library.cards.push(cardName);	
-					} else {
-						game.report.error(cardName+' not found');
+				if (cardJson[cardName] || game.options.allowUserCards) {
+					for (j=0; j<qty; j++) {
+						game.zones.library.cards.push(cardName);
+						
 					}
-					
+				} else {
+					game.report.error(cardName+' not found');
 				}
 			} else {
-				// no quantity, just count it as one
-				game.zones.library.cards.push(cards[i].toString().toProperCase());
+				// no quantity provided, so we'll count this as a single card
+				cardName = cards[i].toString().toProperCase()
+				if (cardJson[cardName]) {
+					game.zones.library.cards.push(cardName);	
+					game.deck.push(cardName);
+				}
+				
 			}
 		}
 
+		// reset the card events
 		game.cardEvents.init();
 		
 	};
+	
+	/**
+	* updates the html in the DOM for target zone
+	* @param {string} zone - name/id of target zone
+	*/
 
 	game.updateZone = function(zone) {
-		var i, html, colors,
-			container = $('.'+zone).find('ul');
+		var i, html, colors, card,
+			container = $('.'+zone).find('ul'),
+			htmlCards = container.find('.card'); // cards that are currently in the zone
 
-    	zoneCards = game.zones[zone].cards || [];
+    	zoneCards = game.zones[zone].cards || []; // cards that should be in the zone
+    	console.log(zoneCards);
+    	console.log(zone);
+    	// remove each card in this zone that shouldn't be there
+    	$.each(htmlCards, function(i){
+    		var $this = $(this);
+    		for (i=0;i<zoneCards.length;i++) {
+    			console.log(zoneCards.indexOf($this.attr('data-card-name')));
+    			if (zoneCards.indexOf($this.attr('data-card-name')) === -1) {
+    				card = $this.detach();
+    			}
+    		}
+    	});
+
+    	// clear the current zone (in the DOM)
     	container.html('');
 		
-		for (i=zoneCards.length-1; i>0; i--) {
+		// traverse through cards in this zone backwards
+		for (i=zoneCards.length-1; i>-1; i--) {
 			colors = "";
-			if (cardData[zoneCards[i]]) {
-				colors = cardData[zoneCards[i]]['colors'] || 'colorless';
-				colors = (typeof colors == 'string') ? colors.replace(","," ") : colors.toString().replace(","," ");
-				colors = colors.toLowerCase();
+
+			// get the colors of the card
+			if (cardJson[zoneCards[i]]) {
+				colors = cardJson[zoneCards[i]]['colors'] || 'colorless'; // if unspecified color, colorless
+				colors = (typeof colors == 'string') ? colors.replace(","," ") : colors.toString().replace(","," "); // replace the commas with spaces
+				colors = colors.toLowerCase(); 
 			} else {
 				colors = 'no-data';
 			}
-			html = '<li class="card '+colors+'" data-card-name="'+zoneCards[i]+'" data-card-zone="'+game.zones[zone].name+'" data-card-index="'+i+'">'+zoneCards[i]+'</li>';
+
+			// make the html list item
+			if (zone != 'battlefield') {
+				html = '<li class="card-container"><span class="card '+colors+'" data-card-name="'+zoneCards[i]+'" data-card-zone="'+game.zones[zone].name+'" data-card-index="'+i+'">'+zoneCards[i]+'</span></li>';	
+			} else {
+				html = '<li class="card-container"><span class="card '+colors+'" data-card-name="'+zoneCards[i]+'" data-card-zone="'+game.zones[zone].name+'" data-card-index="'+i+'">'+zoneCards[i]+'</span><span class="tap">T</span></li>';	
+			}
+			
+			// append the html card to the zone
+			console.log(i);
+			console.log(zoneCards[i]);
+			console.log('adding '+zoneCards[i]+' to '+game.zones[zone].name);
 			container.append(html);
 		}
 
-		game.cardEvents.init();
+		game.cardEvents.init(); // reset event listeners on cards
 	};
+
+
 
 	game.updateAllZones = function () {	
 		var count = 0;
@@ -126,17 +202,19 @@ var DeckTester = function(cardData) {
 	}
 
 	game.moveCard = function (fromZone, toZone, card) {
-		var position = fromZone.cards.indexOf(card);
+		var position = fromZone.cards.indexOf(card),
+			htmlCard = $('[data-card-name='+card+']').detach();
 
 		if (fromZone.length <= 0) {
 			game.report.error('no cards in '+fromZone.name)
 		} else if (position >= 0) {
 			fromZone.cards.splice(position, 1);
-			toZone.cards.push(card);
+			toZone.cards.splice(0,0,card);
+			htmlCard.appendTo('.'+toZone.name);
 		} else {
 			game.report.error(card+' not found in '+fromZone.name);
 		}
-		game.updateAllZones();
+		game.cardEvents.init();
 	};
 
 	game.commands = {
@@ -144,6 +222,9 @@ var DeckTester = function(cardData) {
 			for (var i=0; i<amount; i++) {
 				game.moveCard(game.zones.library, game.zones.hand, game.zones.library.cards[0]);
 			}
+		},
+		newGame : function () {
+			game.startGame();
 		},
 		shuffle : function (arr) {
 		    var counter = arr.length, temp, index;
@@ -175,18 +256,18 @@ var DeckTester = function(cardData) {
 				console.log('please use a real zone');
 				return;
 			}
-			for (i=0; i<game.zones[zone].length; i++) {
-				console.log(game.zones[zone][i]);
+			for (i=0; i<game.zones[zone].cards.length; i++) {
+				console.log(i+1+'. '+game.zones[zone].cards[i]);
 			} 
 		},
 		cardDetails : function (card) {
-			if (!cardData[card]) {
+			if (!cardJson[card]) {
 				game.report.error('card '+card+' not found');
 				return;		
 			}
-			for (var prop in cardData[card]) {
-				if (cardData.hasOwnProperty(card)) {
-					console.log(prop+" : "+cardData[card][prop]);	
+			for (var prop in cardJson[card]) {
+				if (cardJson.hasOwnProperty(card)) {
+					console.log(prop+" : "+cardJson[card][prop]);	
 				}
 			}
 
@@ -210,7 +291,19 @@ var DeckTester = function(cardData) {
 			game.commands.shuffle(game.zones.hand.cards);
 			game.updateAllZones();
 			game.report.cardDetails(game.zones.hand.cards[0]);
+		},
+		sequence : {
+			1 : function() {
+				game.moveCard(game.zones.hand.cards, game.zones.battlefield.cards, game.zones.hands.cards[0]);
+				game.updateAllZones();
+				game.report.allZone();
+			},
+			2 : function() {
+				game.moveCard(game.zones.hand.cards, game.zones.battlefield.cards, game.zones.hands.cards[0]);
+				game.report.allZones();
+			}
 		}
+		
 	};
 
 	return game;
@@ -218,17 +311,27 @@ var DeckTester = function(cardData) {
 
 var CardEvents = function() {
 	var pub = {},
-		$window = $(window)
+		$window = $(window);
 
 	pub.card = {};
 	pub.mousePosition = {};
 
 	pub.init = function() {
-		$('.card').off('mousedown',pub.bindCardToMouse);
-		$('.card').on('mousedown',pub.bindCardToMouse);
+		var tapControl = $('.library').find('.card').find('.tap'),
+			gameCard = $('.card').filter(function(){
+			if (!$(this).parent('.battlefield').length) {
+				return true;
+			}
+		});
 
-		$('.card').off('mouseup',pub.unbindCardToMouse);
-		$('.card').on('mouseup',pub.unbindCardToMouse);
+		gameCard.off('mousedown',pub.bindCardToMouse);
+		gameCard.on('mousedown',pub.bindCardToMouse);
+
+		gameCard.off('mouseup',pub.unbindCardToMouse);
+		gameCard.on('mouseup',pub.unbindCardToMouse);
+
+		
+		$('.tap').on('click',function(){alert('hello')});
 
 		var throttled = {
 			checkForMouseInZones : _.throttle(pub.checkForMouseInZones, 0),
@@ -240,22 +343,42 @@ var CardEvents = function() {
 		$window.on('mousemove',throttled.checkForMouseInZones);
 	};
 
+	pub.tap = function (e) {
+		var card = $(e.target).parent('.card');
+
+		if (!card.hasClass('tapped')) {
+			card.addClass('tapped');
+		} else {
+			card.removeClass('tapped');
+		}
+		e.stopPropagation();
+	},
+
 	pub.bindCardToMouse = function (e) {
 		pub.card = $(e.target);
+		if (!$(e.target).hasClass('card')) {
+			return;
+		}
+		
+		pub.card.addClass('active-card');
 		$window.on('mousemove', pub.moveCard)
+		e.stopPropagation();
 	};
 
 	pub.unbindCardToMouse = function() {
+		if (!pub.card.hasClass('card')) {return};
 		var targetZone = pub.checkForMouseInZones(),
 			sourceZone = pub.card.attr('data-card-zone'),
 			index = pub.card.attr('data-card-index'),
-			cardName = pub.card.attr('data-card-name')
+			cardName = pub.card.attr('data-card-name');
+
+		pub.card.removeClass('active-card');
 		console.log(sourceZone+" "+cardName);
 		$window.off('mousemove', pub.moveCard);
 		
 		if (pub.checkForMouseInZones()) {
+			console.log(sourceZone);
 			dT.moveCard(dT.zones[sourceZone], dT.zones[targetZone], dT.zones[sourceZone].cards[index]);
-			
 		}
 		dT.updateZone(targetZone);
 		dT.updateZone(sourceZone);
