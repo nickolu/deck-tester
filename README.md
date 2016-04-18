@@ -9,5 +9,4 @@ check back later.
 
 
 current issues:
-- moveCards method for some reason adds 20 of specified card
-- updateZone method does a similar thing, but puts the cards outside of the <ul> container (seems to be separate issue)
+- double click to tap doesn't work

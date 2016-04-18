@@ -6,7 +6,6 @@
 *	
 *	a javascript application for playtesting magic decks
 *
-*
 */
 
 
@@ -365,6 +364,7 @@ var CardEvents = function() {
 
 	pub.bindCardToMouse = function (e) {
 		pub.card = $(e.target);
+
 		if (!$(e.target).hasClass('card')) {
 			return;
 		}
@@ -376,7 +376,7 @@ var CardEvents = function() {
 
 	pub.unbindCardToMouse = function() {
 		if (!pub.card.hasClass('card')) {return};
-		
+
 		var targetZone = pub.checkForMouseInZones(),
 			sourceZone = pub.card.attr('data-card-zone'),
 			index = pub.card.attr('data-card-index'),
