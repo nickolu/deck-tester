@@ -86,8 +86,7 @@ var DeckTester = function(cardJson) {
 	 * creates the initial library for the game from an array of strings representing cards in the library
 	 * a card name can be preceded by a number representing the quantity of that card, otherwise it will be counted as one card
 	 *
-	 * if an array is provided as an argument it will be used for the library, otherwise it will build an array from the values in the input box
-	 *
+	 * if an array is provided as an argument it will be used for the library, otherwise the values in the input box will be used
 	 * 
 	 * @param  {array} array of strings representing cards in the library
 	 * @return {[type]}       [description]
@@ -148,20 +147,41 @@ var DeckTester = function(cardJson) {
 	* @param {string} zone - name/id of target zone
 	*/
 
-	game.updateZone = function(zone) {
+	game.updateZone = function(zone,reset) {
 		var i, html, colors, card,
 			container = $('.'+zone).find('ul'),
 			htmlCards = container.find('.card-container'), // DOM cards in this zone
 			zoneCards = game.zones[zone].cards || []; // cards that should be in the zone
 
-    	// clear the current zone (in the DOM)
-    	container.empty();
+
+		if (!reset) {
+			resetZone();	
+			game.cardEvents.init();
+		} else {
+			amendZone();
+		}
 		
-		// traverse through cards in this zone array backwards
-		for (i=zoneCards.length-1; i>=0; i--) {
-			colors = getColors(i);
-			html = '<li class="card-container"><span class="card '+colors+'" data-card-name="'+zoneCards[i].replace(' ','-').toLowerCase()+'" data-card-zone="'+game.zones[zone].name+'" data-card-index="'+i+'">'+zoneCards[i]+'</span><span class="tap">T</span></li>';	
-			container.append(html);
+		
+		function amendZone() {
+			$.each(zoneCards,function(i) {
+				$.each(htmlCards,function(j) {
+					
+				});
+			}); 
+		}
+
+
+		function resetZone() {
+			// clear the current zone (in the DOM)
+	    	container.empty();
+			
+			// traverse through cards in this zone array backwards
+			for (i=zoneCards.length-1; i>=0; i--) {
+				colors = getColors(i);
+				html = '<li class="card-container"><span class="card '+colors+'" data-card-name="'+zoneCards[i].replace(' ','-').toLowerCase()+'" data-card-zone="'+game.zones[zone].name+'" data-card-index="'+i+'">'+zoneCards[i]+'</span><span class="tap">T</span></li>';	
+				container.append(html);
+			}
+			game.cardEvents.init();
 		}
 
 		/**
@@ -202,6 +222,7 @@ var DeckTester = function(cardJson) {
 			container = $('.'+toZone.name).find('ul'),
 			htmlCards, htmlCard, cardAttr;
 			
+		game.cardEvents.init();	
 		cardAttr = cardName.replace(' ','-').toLowerCase();
 		htmlCards = container.find('[data-card-name='+cardAttr+']').closest('.card-container');
 		htmlCard = $(htmlCards[0]).detach();		
@@ -313,36 +334,31 @@ var DeckTester = function(cardJson) {
 
 var CardEvents = function() {
 	var pub = {},
-		$window = $(window);
+		$window = $(window),
+		clickTimer;
 
 	pub.card = {};
 	pub.mousePosition = {};
 
 	pub.init = function() {
-		var tapControl = $('.library').find('.card').find('.tap'),
-			gameCard = $('.card').filter(function(){
-			if (!$(this).parent('.battlefield').length) {
-				return true;
-			}
-		});
+		var gameCard = $('.card'), throttled;
 
-		$('.card-container').on('dblclick',function(){
+
+		$('.card-container').on('dblclick',function(e){
+			
 			if (!($(this).hasClass('tapped'))) {
 				$(this).addClass('tapped');
 			} else {
 				$(this).removeClass('tapped');
 			}
+			e.preventDefault();
+			e.stopPropagation();	
 		});
 
-		gameCard.off('mousedown',pub.bindCardToMouse);
-		gameCard.on('mousedown',pub.bindCardToMouse);
+		gameCard.off('mousedown.dT').on('mousedown.dT',pub.bindCardToMouse);
 
-		gameCard.off('mouseup',pub.unbindCardToMouse);
-		gameCard.on('mouseup',pub.unbindCardToMouse);
-
-
-		var throttled = {
-			checkForMouseInZones : _.throttle(pub.checkForMouseInZones, 0),
+		throttled = {
+			checkForMouseInZones : _.throttle(pub.checkForMouseInZones, 100),
 			buildZoneAreas : _.throttle(pub.buildZoneAreas, 0)
 		} 
 
@@ -363,24 +379,34 @@ var CardEvents = function() {
 	},
 
 	pub.bindCardToMouse = function (e) {
-		pub.card = $(e.target);
-
-		if (!$(e.target).hasClass('card')) {
-			return;
-		}
 		
-		pub.card.addClass('active-card');
-		$window.on('mousemove', pub.moveCard)
-		e.stopPropagation();
+		clickTimer = setTimeout(function(){
+			pub.card = $(e.target);
+
+			if (!$(e.target).hasClass('card')) {
+				return;
+			}
+			
+			$window.on('mousemove', pub.moveCard);
+			pub.card.addClass('active-card');
+			pub.card.off('mouseup.dT').on('mouseup.dT',pub.unbindCardToMouse);
+			e.stopPropagation();
+		},200);
+
+		$(window).off('mouseup.clickTimer').on('mouseup.clickTimer', function() {
+			clearTimeout(clickTimer);
+			$(window).off('mouseup.clickTimer');
+		});
+		
 	};
 
 	pub.unbindCardToMouse = function() {
-		if (!pub.card.hasClass('card')) {return};
-
 		var targetZone = pub.checkForMouseInZones(),
 			sourceZone = pub.card.attr('data-card-zone'),
 			index = pub.card.attr('data-card-index'),
 			cardName = pub.card.attr('data-card-name');
+
+		if (!pub.card.hasClass('card')) {return};
 
 		pub.card.removeClass('active-card');
 		$window.off('mousemove', pub.moveCard);
@@ -391,7 +417,7 @@ var CardEvents = function() {
 
 		dT.updateZone(targetZone);
 		dT.updateZone(sourceZone);
-		
+		dT.cardEvents.init();
 		pub.card = {};
 	};
 
