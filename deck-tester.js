@@ -5,15 +5,14 @@
 *	license: whatever
 *	
 *	a javascript application for playtesting magic decks
-
-current issues:
-- moveCards method for some reason adds 20 of specified card
-- updateZone method does a similar thing, but puts the cards outside of the <ul> container (seems to be separate issue)
+*
+*
 */
 
 
 (function($){
 
+"use strict";
 
 $(document).ready(function() {
 	$.ajax({
@@ -27,6 +26,7 @@ $(document).ready(function() {
 	});
 });
 
+
 /**
 * converts a string to Proper Case
 */
@@ -36,7 +36,7 @@ String.prototype.toProperCase = function () {
 };
 
 /***
-*	Represents a tester for magic decks
+*	Represents a virtual solitaire game of magic the gathering
 *	@constructor
 *	@param {object} cardJson - card database
 */
@@ -53,12 +53,17 @@ var DeckTester = function(cardJson) {
   		useTestData : true
   	};
 
+  	/**
+  	 * setup the game
+  	 */
 	game.init = function() {
 		$('.btn').on('click',game.startGame);	
 		game.cardEvents = new CardEvents();
 		game.initZones();
 	};
-
+	/**
+	 * start the game
+	 */
 	game.startGame = function() {
 		var i;		
 
@@ -66,7 +71,9 @@ var DeckTester = function(cardJson) {
 		game.commands.shuffle(game.zones.library.cards);
 		game.updateAllZones();
 	};
-
+	/**
+	 * create a zone array for each item in zoneNames
+	 */
 	game.initZones = function() {
 		for (i=0;i<zoneNames.length;i++) {
 			game.zones[zoneNames[i]] = {
@@ -77,9 +84,15 @@ var DeckTester = function(cardJson) {
 	};
 
 	/**
-	*	gets the card names and counts and makes the library object with them
-	*	if no cards array is provided it will use the value of the input element
-	*/
+	 * creates the initial library for the game from an array of strings representing cards in the library
+	 * a card name can be preceded by a number representing the quantity of that card, otherwise it will be counted as one card
+	 *
+	 * if an array is provided as an argument it will be used for the library, otherwise it will build an array from the values in the input box
+	 *
+	 * 
+	 * @param  {array} array of strings representing cards in the library
+	 * @return {[type]}       [description]
+	 */
 	game.buildLibrary = function(cards) {
 		var cardName = '',
 			qty = 0,
@@ -111,7 +124,6 @@ var DeckTester = function(cardJson) {
 				if (cardJson[cardName] || game.options.allowUserCards) {
 					for (j=0; j<qty; j++) {
 						game.zones.library.cards.push(cardName);
-						
 					}
 				} else {
 					game.report.error(cardName+' not found');
@@ -133,60 +145,45 @@ var DeckTester = function(cardJson) {
 	};
 	
 	/**
-	* updates the html in the DOM for target zone
+	* clears each zone and replaces them with the correct cards
 	* @param {string} zone - name/id of target zone
 	*/
 
 	game.updateZone = function(zone) {
 		var i, html, colors, card,
 			container = $('.'+zone).find('ul'),
-			htmlCards = container.find('.card'); // cards that are currently in the zone
-
-    	zoneCards = game.zones[zone].cards || []; // cards that should be in the zone
-    	console.log(zoneCards);
-    	console.log(zone);
-    	// remove each card in this zone that shouldn't be there
-    	$.each(htmlCards, function(i){
-    		var $this = $(this);
-    		for (i=0;i<zoneCards.length;i++) {
-    			console.log(zoneCards.indexOf($this.attr('data-card-name')));
-    			if (zoneCards.indexOf($this.attr('data-card-name')) === -1) {
-    				card = $this.detach();
-    			}
-    		}
-    	});
+			htmlCards = container.find('.card-container'), // DOM cards in this zone
+			zoneCards = game.zones[zone].cards || []; // cards that should be in the zone
 
     	// clear the current zone (in the DOM)
-    	container.html('');
+    	container.empty();
 		
-		// traverse through cards in this zone backwards
-		for (i=zoneCards.length-1; i>-1; i--) {
-			colors = "";
-
-			// get the colors of the card
-			if (cardJson[zoneCards[i]]) {
-				colors = cardJson[zoneCards[i]]['colors'] || 'colorless'; // if unspecified color, colorless
-				colors = (typeof colors == 'string') ? colors.replace(","," ") : colors.toString().replace(","," "); // replace the commas with spaces
-				colors = colors.toLowerCase(); 
-			} else {
-				colors = 'no-data';
-			}
-
-			// make the html list item
-			if (zone != 'battlefield') {
-				html = '<li class="card-container"><span class="card '+colors+'" data-card-name="'+zoneCards[i]+'" data-card-zone="'+game.zones[zone].name+'" data-card-index="'+i+'">'+zoneCards[i]+'</span></li>';	
-			} else {
-				html = '<li class="card-container"><span class="card '+colors+'" data-card-name="'+zoneCards[i]+'" data-card-zone="'+game.zones[zone].name+'" data-card-index="'+i+'">'+zoneCards[i]+'</span><span class="tap">T</span></li>';	
-			}
-			
-			// append the html card to the zone
-			console.log(i);
-			console.log(zoneCards[i]);
-			console.log('adding '+zoneCards[i]+' to '+game.zones[zone].name);
+		// traverse through cards in this zone array backwards
+		for (i=zoneCards.length-1; i>=0; i--) {
+			colors = getColors(i);
+			html = '<li class="card-container"><span class="card '+colors+'" data-card-name="'+zoneCards[i].replace(' ','-').toLowerCase()+'" data-card-zone="'+game.zones[zone].name+'" data-card-index="'+i+'">'+zoneCards[i]+'</span><span class="tap">T</span></li>';	
 			container.append(html);
 		}
 
-		game.cardEvents.init(); // reset event listeners on cards
+		/**
+		 * gets the colors for a card in this zone
+		 * @param  {number} index -- index of the card in this zone
+		 * @return {string} -- string of colors separated by spaces
+		 */
+		function getColors(index) {
+			var theColors = 'no-data';
+			
+			if (cardJson[zoneCards[i]]) {
+				theColors = cardJson[zoneCards[i]]['colors'] || 'colorless'; // if unspecified color, colorless
+				theColors = (typeof theColors == 'string') ? theColors.replace(","," ") : theColors.toString().replace(","," "); 
+				theColors = theColors.toLowerCase(); 
+			} 
+
+			return theColors;
+		}
+
+		// reset event listeners on cards
+		game.cardEvents.init(); 
 	};
 
 
@@ -201,19 +198,25 @@ var DeckTester = function(cardJson) {
 		}
 	}
 
-	game.moveCard = function (fromZone, toZone, card) {
-		var position = fromZone.cards.indexOf(card),
-			htmlCard = $('[data-card-name='+card+']').detach();
-
+	game.moveCard = function (fromZone, toZone, cardName) {
+		var position = fromZone.cards.indexOf(cardName),
+			container = $('.'+toZone.name).find('ul'),
+			htmlCards, htmlCard, cardAttr;
+			
+		cardAttr = cardName.replace(' ','-').toLowerCase();
+		htmlCards = container.find('[data-card-name='+cardAttr+']').closest('.card-container');
+		htmlCard = $(htmlCards[0]).detach();		
+		
 		if (fromZone.length <= 0) {
 			game.report.error('no cards in '+fromZone.name)
 		} else if (position >= 0) {
 			fromZone.cards.splice(position, 1);
-			toZone.cards.splice(0,0,card);
-			htmlCard.appendTo('.'+toZone.name);
+			toZone.cards.splice(0,0,cardName);
+			htmlCard.appendTo(container);
 		} else {
-			game.report.error(card+' not found in '+fromZone.name);
-		}
+			game.report.error(cardName+' not found in '+fromZone.name);
+		}	
+
 		game.cardEvents.init();
 	};
 
@@ -324,14 +327,20 @@ var CardEvents = function() {
 			}
 		});
 
+		$('.card-container').on('dblclick',function(){
+			if (!($(this).hasClass('tapped'))) {
+				$(this).addClass('tapped');
+			} else {
+				$(this).removeClass('tapped');
+			}
+		});
+
 		gameCard.off('mousedown',pub.bindCardToMouse);
 		gameCard.on('mousedown',pub.bindCardToMouse);
 
 		gameCard.off('mouseup',pub.unbindCardToMouse);
 		gameCard.on('mouseup',pub.unbindCardToMouse);
 
-		
-		$('.tap').on('click',function(){alert('hello')});
 
 		var throttled = {
 			checkForMouseInZones : _.throttle(pub.checkForMouseInZones, 0),
@@ -367,19 +376,19 @@ var CardEvents = function() {
 
 	pub.unbindCardToMouse = function() {
 		if (!pub.card.hasClass('card')) {return};
+		
 		var targetZone = pub.checkForMouseInZones(),
 			sourceZone = pub.card.attr('data-card-zone'),
 			index = pub.card.attr('data-card-index'),
 			cardName = pub.card.attr('data-card-name');
 
 		pub.card.removeClass('active-card');
-		console.log(sourceZone+" "+cardName);
 		$window.off('mousemove', pub.moveCard);
 		
 		if (pub.checkForMouseInZones()) {
-			console.log(sourceZone);
 			dT.moveCard(dT.zones[sourceZone], dT.zones[targetZone], dT.zones[sourceZone].cards[index]);
 		}
+
 		dT.updateZone(targetZone);
 		dT.updateZone(sourceZone);
 		

@@ -88,6 +88,21 @@ h4 {
 	z-index: 100;
 }
 
+.card-container {
+	list-style: none;
+}
+
+.card-container .tap {
+	display: none;
+}
+
+.tapped .card {
+	transform: rotate(45deg);
+	-ms-transform: rotate(45deg);
+	-webkit-transform: rotate(45deg);
+}
+
+
 .hand .card, .exile .card {
 	margin-left: -84px;
   	left: 92px;
